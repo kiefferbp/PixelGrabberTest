@@ -8,23 +8,29 @@ import java.awt.image.DataBufferByte;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
+import javax.swing.ImageIcon;
+import java.io.OutputStream;
+import java.io.FileOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.awt.image.Raster;
+import java.awt.Point;
 
 public class PixelGrabberTest {
-	public static void main(String[] args) {
+	public static void main(String[] args) throws Exception {
 		// compute the starting time
-		final long startTime = System.nanoTime();
-		final long endTime;
+		long startTime = System.nanoTime();
+		long endTime;
 		
 		// get the image
-		final File imgFile = new File("circles_2560-1600.png");
+		File imgFile = new File("circles_1080p_fullred.jpg");
 		
 		try {
-			final BufferedImage img = ImageIO.read(imgFile);
+			BufferedImage img = ImageIO.read(imgFile);
 			
-			// set up the pixel array and set
-			final byte[] subpixels = ((DataBufferByte) img.getRaster().getDataBuffer()).getData();
-			final int[] pixels = new int[img.getWidth() * img.getHeight()];
-			final HashSet<Integer> pixelSet = new HashSet<>();
+			// set up the pixel array
+			byte[] subpixels = ((DataBufferByte) img.getRaster().getDataBuffer()).getData();
 			
 			if (img.getAlphaRaster() == null) { // image has no alpha channel
 				for (
@@ -32,11 +38,39 @@ public class PixelGrabberTest {
 					subpixel < subpixels.length;
 					subpixel += 3 // since each pixel has 3 subpixels (RGB)
 				) {
-					pixels[subpixel / 3] = -16777216 // 100% alpha (no transparency)
-							+ ((int) subpixels[subpixel] & 0xff) // blue
-							+ (((int) subpixels[subpixel + 1] & 0xff) << 8) // green
-							+ (((int) subpixels[subpixel + 2] & 0xff) << 16); // red
+					byte redSubpixel = subpixels[subpixel + 2];
+					byte blueSubpixel = subpixels[subpixel];
+					byte greenSubpixel = subpixels[subpixel + 1];
+					
+					if ((redSubpixel & 0xFF) > 0x00) {
+						subpixels[subpixel] = (byte)0xff; // full blue
+						subpixels[subpixel + 1] = (byte)0x00; // remove green
+						subpixels[subpixel + 2] = (byte)0x00; // remove red
+					}
+
+					if (
+						((redSubpixel & 0xFF) == 0xFF) &&
+						((greenSubpixel & 0xFF) == 0x00) &&
+						((redSubpixel & 0xFF) == 0x00)
+					) {
+						subpixels[subpixel] = (byte)0xff; // full blue
+						subpixels[subpixel + 1] = (byte)0x00; // remove green
+						subpixels[subpixel + 2] = (byte)0x00; // remove red
+					}
 				}
+
+				// create a new blank canvas for the result
+				BufferedImage resultImg = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_3BYTE_BGR);
+				
+				// fill in the 
+				resultImg.setData(
+					Raster.createRaster(
+						resultImg.getSampleModel(),
+						new DataBufferByte(subpixels, subpixels.length),
+						new Point()
+					)
+				);
+				ImageIO.write(resultImg, "png", new File("output.png"));
 			} else {
 				throw new Exception("Unexpected transparency.");
 			} 
@@ -46,7 +80,7 @@ public class PixelGrabberTest {
 		} catch (IOException ex) {
 			System.err.println("Bad I/O: " + ex);
 		} catch (Exception ex) {
-			System.err.println(ex);
+			throw ex;
 		}
 	}
 }
