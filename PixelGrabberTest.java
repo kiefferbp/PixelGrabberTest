@@ -19,19 +19,29 @@ import java.awt.Point;
 
 public class PixelGrabberTest {
 	public static void main(String[] args) throws Exception {
-		// compute the starting time
-		long startTime = System.nanoTime();
-		long endTime;
-		
+		// create timers
+        final Timer mainTimer = new Timer("Running...", "Completed.");
+		final Timer imageGetTimer = new Timer("Obtaining image...", "Obtained image.");
+		final Timer subPixelsGetTimer = new Timer("Obtaining subpixels...", "Obtained subpixels.");
+		final Timer subPixelsProcessTimer = new Timer("Processing subpixels...", "Processed subpixels.");
+        final Timer outputWriteTimer = new Timer("Writing result...", "Wrote result.");
+
+        mainTimer.start();
+
 		// get the image
-		File imgFile = new File("circles_1080p_fullred.jpg");
+		File imgFile = new File("PixelGrabberTest/circles_1080p_fullred.jpg");
 		
 		try {
+            imageGetTimer.start();
 			BufferedImage img = ImageIO.read(imgFile);
+            imageGetTimer.end();
 			
 			// set up the pixel array
+            subPixelsGetTimer.start();
 			byte[] subpixels = ((DataBufferByte) img.getRaster().getDataBuffer()).getData();
-			
+            subPixelsGetTimer.end();
+
+            subPixelsProcessTimer.start();
 			if (img.getAlphaRaster() == null) { // image has no alpha channel
 				for (
 					int subpixel = 0, row = 0, col = 0;
@@ -58,8 +68,10 @@ public class PixelGrabberTest {
 						subpixels[subpixel + 2] = (byte)0x00; // remove red
 					}
 				}
+				subPixelsProcessTimer.end();
 
 				// create a new blank canvas for the result
+                outputWriteTimer.start();
 				BufferedImage resultImg = new BufferedImage(img.getWidth(), img.getHeight(), BufferedImage.TYPE_3BYTE_BGR);
 				
 				// fill in the 
@@ -71,16 +83,16 @@ public class PixelGrabberTest {
 					)
 				);
 				ImageIO.write(resultImg, "png", new File("output.png"));
+                outputWriteTimer.end();
 			} else {
 				throw new Exception("Unexpected transparency.");
-			} 
-			
-			endTime = System.nanoTime();
-			System.out.println("Duration: " + (int)((endTime - startTime)/1000000) + " ms");
+			}
 		} catch (IOException ex) {
 			System.err.println("Bad I/O: " + ex);
 		} catch (Exception ex) {
 			throw ex;
 		}
+
+		mainTimer.end();
 	}
 }
